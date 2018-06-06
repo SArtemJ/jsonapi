@@ -6,7 +6,6 @@ import (
 	"github.com/google/jsonapi"
 	"strconv"
 	"fmt"
-	"os"
 )
 
 type NestedData struct {
@@ -44,43 +43,27 @@ func GetData(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", jsonapi.MediaType)
 	w.WriteHeader(http.StatusCreated)
 
-	pn, _ := strconv.Atoi(r.URL.Query().Get("pagenumber"))
-	//ps, _ := strconv.Atoi(r.URL.Query().Get("pagesize"))
+	pn, _ := strconv.Atoi(r.URL.Query().Get("page[number]"))
+	ps, _ := strconv.Atoi(r.URL.Query().Get("page[size]"))
 
-	jsonapi.MarshalPayload(os.Stdout, nD)
-	if pn < len(nD) {
-		fmt.Printf("\n %v", nD[pn])
-	}
+	jsonapi.MarshalPayload(w, nD)
+
+	fmt.Println(pn)
+	fmt.Println(ps)
 }
 
 func PostData(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", jsonapi.MediaType)
 	w.WriteHeader(http.StatusCreated)
 
-	//ручное создание объекта но по сути это не обязательно post запрос
-	//тонее post запрос без обработки Body
-	//и таким образом можно только автогенерировать каждый раз объект с новыми  данными и зазполнять в слайс
+	var k NestedData
 
-
-	//ndEL := &NestedData{
-	//		ID:    345,
-	//		Name:  "name" + strconv.Itoa(345),
-	//		Value: "value" + strconv.Itoa(345),
-	//	}
-	//
-	//
-	//
-
-	//проблема при рьработке body
-	//обработка вставки одного элемента из body запроса
-	//индекс в слайсе создается но объект приходит nil
-	//не разворачивается из json в структуру
-	var tmp *NestedData
-	jsonapi.UnmarshalPayload(r.Body, tmp)
-
-	nD = append(nD, tmp)
-	for k, v := range nD {
-		fmt.Printf("%v - %v", k, v)
+	if err := jsonapi.UnmarshalPayload(r.Body, &k); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
-
+	nD = append(nD, &k)
+	for k, v := range nD {
+		fmt.Printf("%v - %v \n", k, v)
+	}
 }
