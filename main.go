@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"github.com/google/jsonapi"
 	"strconv"
-	"fmt"
+	"io"
 )
 
 type NestedData struct {
@@ -41,29 +41,36 @@ func main() {
 
 func GetData(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", jsonapi.MediaType)
-	w.WriteHeader(http.StatusCreated)
 
 	pn, _ := strconv.Atoi(r.URL.Query().Get("page[number]"))
 	ps, _ := strconv.Atoi(r.URL.Query().Get("page[size]"))
 
-	jsonapi.MarshalPayload(w, nD)
-
-	fmt.Println(pn)
-	fmt.Println(ps)
+	if validData, logic := validationPageSize(pn, ps); logic {
+		jsonapi.MarshalPayload(w, validData)
+		w.WriteHeader(http.StatusOK)
+	} else {
+		w.WriteHeader(http.StatusNotFound)
+		io.WriteString(w, "Parameters under the limit")
+	}
 }
 
 func PostData(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", jsonapi.MediaType)
-	w.WriteHeader(http.StatusCreated)
 
 	var k NestedData
-
 	if err := jsonapi.UnmarshalPayload(r.Body, &k); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	w.WriteHeader(http.StatusOK)
 	nD = append(nD, &k)
-	for k, v := range nD {
-		fmt.Printf("%v - %v \n", k, v)
+}
+
+func validationPageSize(number int, size int) ([]*NestedData, bool) {
+	startFromSlice := number * size
+	endFromSlice := size * (number + 1)
+	if startFromSlice < len(nD) && (endFromSlice < len(nD) && endFromSlice > startFromSlice) {
+		return nD[startFromSlice:endFromSlice], true
 	}
+	return nil, false
 }
