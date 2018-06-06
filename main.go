@@ -17,8 +17,8 @@ type NestedData struct {
 
 var nD []*NestedData
 
-func PrepareData() {
-	for i := 0; i < 10; i++ {
+func PrepareData(start int, end int) {
+	for i := start; i < end; i++ {
 		nD = append(nD, &NestedData{
 			ID:    i,
 			Name:  "name" + strconv.Itoa(i),
@@ -28,7 +28,7 @@ func PrepareData() {
 }
 
 func init() {
-	PrepareData()
+	PrepareData(0, 10)
 }
 
 func main() {
@@ -57,9 +57,29 @@ func PostData(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", jsonapi.MediaType)
 	w.WriteHeader(http.StatusCreated)
 
-	var tmp []*NestedData
-	jsonapi.UnmarshalPayload(r.Body, &tmp)
-	for k, v := range tmp {
+	//ручное создание объекта но по сути это не обязательно post запрос
+	//тонее post запрос без обработки Body
+	//и таким образом можно только автогенерировать каждый раз объект с новыми  данными и зазполнять в слайс
+
+
+	//ndEL := &NestedData{
+	//		ID:    345,
+	//		Name:  "name" + strconv.Itoa(345),
+	//		Value: "value" + strconv.Itoa(345),
+	//	}
+	//
+	//
+	//
+
+	//проблема при рьработке body
+	//обработка вставки одного элемента из body запроса
+	//индекс в слайсе создается но объект приходит nil
+	//не разворачивается из json в структуру
+	var tmp *NestedData
+	jsonapi.UnmarshalPayload(r.Body, tmp)
+
+	nD = append(nD, tmp)
+	for k, v := range nD {
 		fmt.Printf("%v - %v", k, v)
 	}
 
