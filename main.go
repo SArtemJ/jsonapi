@@ -6,7 +6,13 @@ import (
 	"github.com/google/jsonapi"
 	"strconv"
 	"io"
+	"sync"
 )
+
+type SafeData struct {
+	Value []*NestedData
+	m   sync.Mutex
+}
 
 type NestedData struct {
 	ID    int    `jsonapi:"primary,values"`
@@ -45,25 +51,17 @@ func GetData(w http.ResponseWriter, r *http.Request) {
 	pn, _ := strconv.Atoi(r.URL.Query().Get("page[number]"))
 	ps, _ := strconv.Atoi(r.URL.Query().Get("page[size]"))
 
-	if validData, logic := validationPageSize(pn, ps); logic {
-		jsonapi.MarshalPayload(w, validData)
-		w.WriteHeader(http.StatusOK)
-	} else {
-		w.WriteHeader(http.StatusNotFound)
-		io.WriteString(w, "Parameters under the limit")
-	}
+	i := &SafeData{}
+	i.GetData(w, pn, ps)
 }
 
 func PostData(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", jsonapi.MediaType)
 
 	var k NestedData
-	if err := jsonapi.UnmarshalPayload(r.Body, &k); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	nD = append(nD, &k)
+	i := &SafeData{}
+	i.PostDataM(w, r, k)
+
 }
 
 func validationPageSize(number int, size int) ([]*NestedData, bool) {
@@ -73,4 +71,29 @@ func validationPageSize(number int, size int) ([]*NestedData, bool) {
 		return nD[startFromSlice:endFromSlice], true
 	}
 	return nil, false
+}
+
+
+func (i *SafeData) GetData(w http.ResponseWriter, p int, s int) []*NestedData {
+	i.m.Lock()
+	if validData, logic := validationPageSize(p, s); logic {
+		jsonapi.MarshalPayload(w, validData)
+		w.WriteHeader(http.StatusOK)
+	} else {
+		w.WriteHeader(http.StatusNotFound)
+		io.WriteString(w, "Parameters under the limit")
+	}
+	defer i.m.Unlock()
+	return i.Value
+}
+
+func (i *SafeData) PostDataM(w http.ResponseWriter, r *http.Request, val NestedData) {
+	i.m.Lock()
+	defer i.m.Unlock()
+	if err := jsonapi.UnmarshalPayload(r.Body, &val); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	i.Value = append(i.Value, &val)
 }
