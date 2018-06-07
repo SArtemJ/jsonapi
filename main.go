@@ -21,6 +21,7 @@ type NestedData struct {
 }
 
 var nD []*NestedData
+var sD = &SafeData{}
 
 func PrepareData(start int, end int) {
 	for i := start; i < end; i++ {
@@ -51,16 +52,14 @@ func GetData(w http.ResponseWriter, r *http.Request) {
 	pn, _ := strconv.Atoi(r.URL.Query().Get("page[number]"))
 	ps, _ := strconv.Atoi(r.URL.Query().Get("page[size]"))
 
-	i := &SafeData{}
-	i.GetData(w, pn, ps)
+	sD.GetData(w, pn, ps)
 }
 
 func PostData(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", jsonapi.MediaType)
-
 	var k NestedData
-	i := &SafeData{}
-	i.PostDataM(w, r, k)
+
+	sD.PostDataM(w, r, k)
 
 }
 
